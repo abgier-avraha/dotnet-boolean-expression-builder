@@ -9,6 +9,7 @@ public class Tests
     {
         public string Name { get; set; } = "";
         public int Age { get; set; } = 0;
+        public List<string> Pets { get; set; } = new List<string>();
     }
 
     [Fact]
@@ -16,34 +17,32 @@ public class Tests
     {
         // Arrange
         var list = new List<TestClass>()
-        {
-            new TestClass()
             {
-                Name = "<this>"
-            },
-            new TestClass()
-            {
-                Name = "<this>"
-            },
-            new TestClass()
-            {
-                Name = "<that>"
-            },
-            new TestClass()
-            {
-                Name = "<that>"
-            },
-            new TestClass()
-            {
-                Name = "<that>"
-            },
-        };
+                new TestClass()
+                {
+                    Name = "<this>"
+                },
+                new TestClass()
+                {
+                    Name = "<this>"
+                },
+                new TestClass()
+                {
+                    Name = "<that>"
+                },
+                new TestClass()
+                {
+                    Name = "<that>"
+                },
+                new TestClass()
+                {
+                    Name = "<that>"
+                },
+            };
 
-        var expr = new BooleanLambdaBuilder<TestClass, string>()
-            .Select(a => a.Name)
-            .Compare(BinaryExpression.Equal)
-            .Against("<this>")
-            .Build();
+        var expr = new BooleanExpressionBuilder<TestClass, string>(a => a.Name)
+            .Configure(new ExpressionNode((selected) => Expression.Equal(selected, Expression.Constant("<this>"))))
+            .ToLambda();
 
         // Act
         var computedList = list.Where(expr);
@@ -55,38 +54,161 @@ public class Tests
     }
 
     [Fact]
+    public void TestStringContainsExpression()
+    {
+        // Arrange
+        var list = new List<TestClass>()
+            {
+                new TestClass()
+                {
+                    Name = "<this>"
+                },
+                new TestClass()
+                {
+                    Name = "<this>"
+                },
+                new TestClass()
+                {
+                    Name = "<that>"
+                },
+                new TestClass()
+                {
+                    Name = "<that>"
+                },
+                new TestClass()
+                {
+                    Name = "<nope>"
+                },
+            };
+
+        var expr = new BooleanExpressionBuilder<TestClass, string>(a => a.Name)
+            .Configure(new ExpressionNode(ExpressionUtils.StringContains("th")))
+            .ToLambda();
+
+        // Act
+        var computedList = list.Where(expr);
+
+        // Assert
+        Assert.Equal(4, computedList.Count());
+        Assert.Contains(computedList, v => v.Name == "<this>");
+        Assert.Contains(computedList, v => v.Name == "<that>");
+        Assert.DoesNotContain(computedList, v => v.Name == "<nope>");
+    }
+
+    [Fact]
+    public void TestListContainsExpression()
+    {
+        // Arrange
+        var list = new List<TestClass>()
+            {
+                new TestClass()
+                {
+                    Pets = new List<string>(){"dog", "cat"}
+                },
+                new TestClass()
+                {
+                    Pets = new List<string>(){"dog", "cat"}
+                },
+                new TestClass()
+                {
+                    Pets = new List<string>(){"dog", "rabbit"}
+                },
+                new TestClass()
+                {
+                    Pets = new List<string>(){"frog", "cat"}
+                },
+                new TestClass()
+                {
+                    Pets = new List<string>(){"rat",}
+                },
+            };
+
+        // TODO: wrap the expression configuration to make it type safe
+        var expr = new BooleanExpressionBuilder<TestClass, List<string>>(a => a.Pets)
+            .Configure(new ExpressionNode(ExpressionUtils.ListContains("dog")))
+            .ToLambda();
+
+        // Act
+        var computedList = list.Where(expr);
+
+        // Assert
+        Assert.Equal(3, computedList.Count());
+    }
+
+    [Fact]
+    public void TestStringEquivalencyOrExpression()
+    {
+        // Arrange
+        var list = new List<TestClass>()
+            {
+                new TestClass()
+                {
+                    Name = "<this>"
+                },
+                new TestClass()
+                {
+                    Name = "<this>"
+                },
+                new TestClass()
+                {
+                    Name = "<that>"
+                },
+                new TestClass()
+                {
+                    Name = "<that>"
+                },
+                new TestClass()
+                {
+                    Name = "<nope>"
+                },
+            };
+
+        var expr = new BooleanExpressionBuilder<TestClass, string>(a => a.Name)
+            .Configure(new ExpressionNode((selected) => Expression.Equal(selected, Expression.Constant("<this>")))
+                .Or(new ExpressionNode((selected) => Expression.Equal(selected, Expression.Constant("<that>")))))
+            .ToLambda();
+
+        // Act
+        var computedList = list.Where(expr);
+
+        // Assert
+        Assert.Equal(4, computedList.Count());
+        Assert.Contains(computedList, v => v.Name == "<this>");
+        Assert.Contains(computedList, v => v.Name == "<that>");
+        Assert.DoesNotContain(computedList, v => v.Name == "<nope>");
+    }
+
+    [Fact]
     public void TestIntegerEquivalencyExpression()
     {
         // Arrange
         var list = new List<TestClass>()
-        {
-            new TestClass()
             {
-                Age = 3
-            },
-            new TestClass()
-            {
-                Age = 3
-            },
-            new TestClass()
-            {
-                Age = 3
-            },
-            new TestClass()
-            {
-                Age = 6
-            },
-            new TestClass()
-            {
-                Age = 6
-            },
-        };
+                new TestClass()
+                {
+                    Age = 3
+                },
+                new TestClass()
+                {
+                    Age = 3
+                },
+                new TestClass()
+                {
+                    Age = 3
+                },
+                new TestClass()
+                {
+                    Age = 6
+                },
+                new TestClass()
+                {
+                    Age = 6
+                },
+            };
 
-        var expr = new BooleanLambdaBuilder<TestClass, int>()
-            .Select(a => a.Age)
-            .Compare(BinaryExpression.Equal)
-            .Against(3)
-            .Build();
+        var expr = new BooleanExpressionBuilder<TestClass, int>(a => a.Age)
+            .Configure(new ExpressionNode((selected) => Expression.Equal(selected, Expression.Constant(3))))
+            .ToLambda();
 
         // Act
         var computedList = list.Where(expr);
@@ -125,14 +247,12 @@ public class Tests
             },
         };
 
-        var expr = new BooleanLambdaBuilder<TestClass, int>()
-            .Select(a => a.Age)
-            // Within 5 checker
-            .Compare((selected, compared) => Expression.And(
-                Expression.GreaterThanOrEqual(selected, Expression.Subtract(compared, Expression.Constant(5))),
-                Expression.LessThanOrEqual(selected, Expression.Add(compared, Expression.Constant(5)))))
-            .Against(3)
-            .Build();
+
+        var expr = new BooleanExpressionBuilder<TestClass, int>(a => a.Age)
+            .Configure(new ExpressionNode((selected) => Expression.GreaterThanOrEqual(selected, Expression.Constant(0)))
+                .And(new ExpressionNode((selected) => Expression.LessThanOrEqual(selected, Expression.Constant(8)))))
+            .ToLambda();
+
 
         // Act
         var computedList = list.Where(expr);
@@ -150,38 +270,34 @@ public class Tests
     {
         // Arrange
         var list = new List<TestClass>()
-        {
-            new TestClass()
             {
-                Age = 8
-            },
-            new TestClass()
-            {
-                Age = 9
-            },
-            new TestClass()
-            {
-                Age = 6
-            },
-            new TestClass()
-            {
-                Age = 21
-            },
-            new TestClass()
-            {
-                Age = 17
-            },
-        };
+                new TestClass()
+                {
+                    Age = 8
+                },
+                new TestClass()
+                {
+                    Age = 9
+                },
+                new TestClass()
+                {
+                    Age = 6
+                },
+                new TestClass()
+                {
+                    Age = 21
+                },
+                new TestClass()
+                {
+                    Age = 17
+                },
+            };
 
-        var expr = new BooleanLambdaBuilder<TestClass, int>()
-            .Select(a => a.Age)
-            // Within 5 checker
-            .Compare((selected, compared) => Expression.And(
-                Expression.GreaterThanOrEqual(selected, Expression.Subtract(compared, Expression.Constant(5))),
-                Expression.LessThanOrEqual(selected, Expression.Add(compared, Expression.Constant(5)))))
-            .Against(3)
+        var expr = new BooleanExpressionBuilder<TestClass, int>(a => a.Age)
+            .Configure(new ExpressionNode((selected) => Expression.GreaterThanOrEqual(selected, Expression.Constant(0)))
+                .And(new ExpressionNode((selected) => Expression.LessThanOrEqual(selected, Expression.Constant(8)))))
             .Not()
-            .Build();
+            .ToLambda();
 
         // Act
         var computedList = list.Where(expr);
